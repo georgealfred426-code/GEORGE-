@@ -1,0 +1,478 @@
+# Multi-Tenant Online Shop — Requirements Summary
+
+## 1. Project Overview
+
+The system is a multi-tenant online shop database. It allows different shops to manage their customers, products, orders, and payments in one PostgreSQL database.
+
+## 2. Main Users
+
+The main users are shop administrators, shop employees, and customers.
+
+## 3. Main Requirements
+
+The system must allow:
+
+1. Shops to create and manage their products.
+2. Shops to organize products into categories.
+3. Customers to place orders.
+4. Orders to contain one or more products.
+5. The system to calculate order totals.
+6. Users to access only data belonging to their shop.
+7. The system to record important database changes in an audit log.
+8. The system to protect sensitive information.
+9. The system to provide fast searches using indexes.
+10. The system to use Redis for data that benefits from fast temporary storage, such as shopping carts or caching.
+
+## 4. Security Requirements
+
+The database must use least-privilege roles. Multi-tenant tables must use Row-Level Security (RLS). Application users must not connect as PostgreSQL superusers.
+
+## 5. Performance Requirements
+
+Important queries must be tested using EXPLAIN ANALYZE. Indexes should be added when they improve query performance.
+
+## 6. Backup Requirements
+
+The database must have regular backups. At least one backup must be restored in a test environment to confirm that it works.
+
+## 7. Main Technologies
+
+- PostgreSQL — main relational database
+- Flyway — database migrations
+- Redis — cache/shopping cart
+- pg_dump — database backup
+  TENANTS
+   |
+   | 1
+   |
+   | many
+USERS
+
+TENANTS
+   |
+   | 1
+   |
+   | many
+PRODUCTS
+   |
+   | many
+   |
+   | 1
+CATEGORIES
+
+TENANTS
+   |
+   | 1
+   |
+   | many
+ORDERS
+   |
+   | 1
+   |
+   | many
+ORDER_ITEMS
+   |
+   | many
+   |
+   | 1
+PRODUCTS
+
+ORDERS
+   |
+   | 1
+   |
+   | 1
+PAYMENTS
+  | Relationship | Cardinality |
+|---|---|
+| Tenant → Users | 1:M |
+| Tenant → Products | 1:M |
+| Tenant → Orders | 1:M |
+| Category → Products | 1:M |
+| User → Orders | 1:M |
+| Order → Order Items | 1:M |
+| Product → Order Items | 1:M |
+| Order → Payment | 1:1 |
+  Table tenants {
+  id int [pk, increment]
+  name varchar
+  created_at timestamp
+}
+
+Table users {
+  id int [pk, increment]
+  tenant_id int
+  name varchar
+  email varchar
+  password_hash varchar
+  created_at timestamp
+}
+
+Table categories {
+  id int [pk, increment]
+  tenant_id int
+  name varchar
+}
+
+Table products {
+  id int [pk, increment]
+  tenant_id int
+  category_id int
+  name varchar
+  price decimal
+  attributes json
+  created_at timestamp
+}
+
+Table orders {
+  id int [pk, increment]
+  tenant_id int
+  user_id int
+  status varchar
+  total decimal
+  created_at timestamp
+}
+
+Table order_items {
+  id int [pk, increment]
+  order_id int
+  product_id int
+  quantity int
+  unit_price decimal
+}
+
+Table payments {
+  id int [pk, increment]
+  order_id int
+  amount decimal
+  status varchar
+  paid_at timestamp
+}
+
+Ref: tenants.id < users.tenant_id
+Ref: tenants.id < categories.tenant_id
+Ref: tenants.id < products.tenant_id
+Ref: categories.id < products.category_id
+Ref: tenants.id < orders.tenant_id
+Ref: users.id < orders.user_id
+Ref: orders.id < order_items.order_id
+Ref: products.id < order_items.product_id
+Ref: orders.id - payments.order_id
+  capstone/
+│
+├── migrations/
+│   ├── V1__core_tables.sql
+│   ├── V2__indexes.sql
+│   ├── V3__audit_and_triggers.sql
+│   ├── V4__row_level_security.sql
+│   └── V5__seed_demo_data.sql
+│
+├── backups/
+│
+└── README.md
+  CREATE DATABASE capstone;
+psql -U postgres -d capstone
+  V1__core_tables.sql
+  CREATE TABLE tenants (
+    id BIGSERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE users (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id BIGINT NOT NULL REFERENCES tenants(id),
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE categories (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id BIGINT NOT NULL REFERENCES tenants(id),
+    name TEXT NOT NULL
+);
+
+CREATE TABLE products (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id BIGINT NOT NULL REFERENCES tenants(id),
+    category_id BIGINT REFERENCES categories(id),
+    name TEXT NOT NULL,
+    price NUMERIC(12,2) NOT NULL,
+    attributes JSONB,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE orders (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id BIGINT NOT NULL REFERENCES tenants(id),
+    user_id BIGINT NOT NULL REFERENCES users(id),
+    status TEXT NOT NULL,
+    total NUMERIC(12,2) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE order_items (
+    id BIGSERIAL PRIMARY KEY,
+    order_id BIGINT NOT NULL REFERENCES orders(id),
+    product_id BIGINT NOT NULL REFERENCES products(id),
+    quantity INT NOT NULL,
+    unit_price NUMERIC(12,2) NOT NULL
+);
+
+CREATE TABLE payments (
+    id BIGSERIAL PRIMARY KEY,
+    order_id BIGINT UNIQUE NOT NULL REFERENCES orders(id),
+    amount NUMERIC(12,2) NOT NULL,
+    status TEXT NOT NULL,
+    paid_at TIMESTAMPTZ
+);
+V2__indexes.sql
+  CREATE INDEX idx_users_tenant_id
+ON users(tenant_id);
+
+CREATE INDEX idx_products_tenant_id
+ON products(tenant_id);
+
+CREATE INDEX idx_products_category_id
+ON products(category_id);
+
+CREATE INDEX idx_orders_tenant_id
+ON orders(tenant_id);
+
+CREATE INDEX idx_orders_user_id
+ON orders(user_id);
+
+CREATE INDEX idx_order_items_order_id
+ON order_items(order_id);
+
+CREATE INDEX idx_order_items_product_id
+ON order_items(product_id);
+
+CREATE INDEX idx_products_attributes
+ON products USING GIN(attributes);
+V3__audit_and_triggers.sql
+  CREATE TABLE audit_log (
+    id BIGSERIAL PRIMARY KEY,
+    table_name TEXT NOT NULL,
+    operation TEXT NOT NULL,
+    old_row JSONB,
+    new_row JSONB,
+    changed_by TEXT DEFAULT current_user,
+    changed_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE FUNCTION audit_changes()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO audit_log (
+        table_name,
+        operation,
+        old_row,
+        new_row
+    )
+    VALUES (
+        TG_TABLE_NAME,
+        TG_OP,
+        to_jsonb(OLD),
+        to_jsonb(NEW)
+    );
+
+    RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+CREATE TRIGGER trg_products_audit
+AFTER INSERT OR UPDATE OR DELETE
+ON products
+FOR EACH ROW
+EXECUTE FUNCTION audit_changes();
+orders
+users
+payments
+  V4__row_level_security.sql
+  ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
+CREATE POLICY products_tenant_policy
+ON products
+USING (
+    tenant_id = current_setting('app.tenant_id')::BIGINT
+);
+SET app.tenant_id = '1';
+V5__seed_demo_data.sql
+INSERT INTO tenants (name)
+VALUES
+('Shop One'),
+('Shop Two');
+INSERT INTO categories (tenant_id, name)
+VALUES
+(1, 'Electronics'),
+(1, 'Clothing'),
+(2, 'Electronics');
+INSERT INTO products
+(tenant_id, category_id, name, price, attributes)
+VALUES
+(
+    1,
+    1,
+    'Laptop',
+    800.00,
+    '{"brand":"Dell","ram":"16GB"}'
+),
+(
+    1,
+    2,
+    'T-Shirt',
+    20.00,
+    '{"size":"M","material":"cotton"}'
+);
+flyway -url=jdbc:postgresql://localhost/capstone -user=postgres migrate
+flyway info
+  flyway clean migrate
+  V1__core_tables       Success
+V2__indexes           Success
+V3__audit_and_triggers Success
+V4__row_level_security Success
+V5__seed_demo_data    Success
+  orders
+payments
+products
+users
+  cart
+session
+cache
+  ## Redis Justification
+
+Redis is used for shopping carts and temporary cached data.
+
+PostgreSQL is used for permanent business data such as users, products, orders, and payments.
+
+Redis is useful for the shopping cart because it provides very fast read and write operations. Cart data can change frequently while the customer is shopping.
+
+Redis also supports expiration, so temporary data can automatically expire.
+
+Using Redis reduces the number of temporary requests that PostgreSQL needs to handle.
+
+PostgreSQL remains the source of truth for completed orders and payments.
+  SELECT
+    tenant_id,
+    SUM(total) AS total_sales
+FROM orders
+GROUP BY tenant_id;
+  EXPLAIN ANALYZE
+SELECT
+    tenant_id,
+    SUM(total) AS total_sales
+FROM orders
+GROUP BY tenant_id;
+SELECT *
+FROM orders
+WHERE tenant_id = 1
+ORDER BY created_at DESC;
+CREATE INDEX idx_orders_tenant_created
+ON orders(tenant_id, created_at DESC);
+EXPLAIN ANALYZE
+SELECT *
+FROM orders
+WHERE tenant_id = 1
+ORDER BY created_at DESC;
+## 1. QUERY
+
+Find the orders for one tenant, with the newest orders first.
+
+```sql
+SELECT *
+FROM orders
+WHERE tenant_id = 1
+ORDER BY created_at DESC;
+```
+
+## 2. BEFORE PLAN
+
+```text
+Paste the EXPLAIN ANALYZE output here.
+```
+
+## 3. CHANGE
+
+Added a composite index:
+
+```sql
+CREATE INDEX idx_orders_tenant_created
+ON orders(tenant_id, created_at DESC);
+```
+
+The index was added because the query filters by `tenant_id` and sorts by `created_at`.
+
+## 4. AFTER PLAN
+
+```text
+Paste the new EXPLAIN ANALYZE output here.
+```
+
+## 5. RESULT
+
+Example:
+
+```text
+Before: Seq Scan
+After: Index Scan
+
+Before: 8.2 seconds
+After: 40 milliseconds
+```
+
+The actual times must come from my EXPLAIN ANALYZE results. I will not claim an improvement until it is measured.
+  capstone/
+├── migrations/
+├── backups/
+└── README.md
+  pg_dump -Fc -f backups/capstone_$(date +%F).dump capstone
+  backups/
+└── capstone_2026-10-08.dump
+  pg_dump -Fc -f "backups/capstone_$(Get-Date -Format yyyy-MM-dd).dump" capstone
+  CREATE DATABASE capstone_restore_test;
+pg_restore -d capstone_restore_test backups/capstone_2026-10-08.dump
+  psql -U postgres -d capstone_restore_test
+  \dt
+  SELECT * FROM tenants;
+CREATE ROLE app_read;
+CREATE ROLE app_write;
+GRANT SELECT
+ON ALL TABLES IN SCHEMA public
+TO app_read;
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON ALL TABLES IN SCHEMA public
+TO app_write;
+CREATE USER api
+LOGIN PASSWORD 'CHANGE_THIS_PASSWORD'
+IN ROLE app_write;
+[x] Least-privilege roles
+[x] No application superuser
+[x] RLS on multi-tenant tables
+[x] Sensitive passwords stored as hashes
+[x] Audit log on critical tables
+[x] Parameterized queries
+[x] Database backup created
+[x] Backup restore tested
+  capstone/
+│
+├── migrations/
+│   ├── V1__core_tables.sql
+│   ├── V2__indexes.sql
+│   ├── V3__audit_and_triggers.sql
+│   ├── V4__row_level_security.sql
+│   └── V5__seed_demo_data.sql
+│
+├── backups/
+│   └── capstone_YYYY-MM-DD.dump
+│
+├── README.md
+│
+└── docs/
+    ├── requirements.md
+    ├── er-diagram.png
+    ├── redis-justification.md
+    ├── optimization.md
+    └── security.md
