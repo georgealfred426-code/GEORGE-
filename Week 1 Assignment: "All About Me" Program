@@ -1,0 +1,27 @@
+
+# Week 1 Assignment: All About Me
+
+print("===== ALL ABOUT ME =====")
+
+name = "Your Name"
+age = 20
+country = "South Sudan"
+course = "Python Development"
+hobby = "Learning programming"
+
+print("My name is", name)
+print("I am", age, "years old")
+print("I come from", country)
+print("I am learning", course)
+print("My hobby is", hobby)
+
+print("Thank you for learning about me!")
+python all_about_me.py
+py all_about_me.py
+===== ALL ABOUT ME =====
+My name is Your Name
+I am 20 years old
+I come from South Sudan
+I am learning Python Development
+My hobby is Learning programming
+Thank you for learning about me!
