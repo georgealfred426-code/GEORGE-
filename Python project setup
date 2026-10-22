@@ -1,0 +1,26 @@
+cd %USERPROFILE%
+mkdir python_lab
+cd python_lab
+mkdir src
+mkdir tests
+mkdir docs 
+python_lab/
+├── src/
+├── tests/
+└── docs/
+type nul > src\main.py
+type nul > src\utils.py
+type nul > src\config.py
+echo My Python Lab Project > docs\README.md
+tree /F
+C:\Users\YourUsername\python_lab
+│
+├───docs
+│       README.md
+│
+├───src
+│       config.py
+│       main.py
+│       utils.py
+│
+└───tests
