@@ -1,0 +1,15 @@
+flutter doctor
+python --version
+py --version
+mysql --version
+python --version
+py --version
+code --version
+mysql --version
+flutter --version
+dart --version
+flutter doctor
+cd %USERPROFILE%
+flutter create my_first_app
+cd my_first_app
+flutter devices
