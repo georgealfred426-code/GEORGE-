@@ -1,0 +1,135 @@
+plp-python-week8/
+├── toolkit_plan.txt
+├── toolkit.py
+├── README.md
+└── screenshots/
+PERSONAL MINI-TOOLKIT — WEEK 8 PROJECT PLAN
+
+1. TOOLS
+
+Tool 1: Greeting Tool
+This tool asks the user for their name and displays a friendly greeting.
+Concepts: input(), variables, f-strings.
+
+Tool 2: Simple Calculator
+This tool asks for two numbers, adds them, and uses conditions to describe the result.
+Concepts: input(), float(), variables, arithmetic, if/elif/else, f-strings.
+
+Tool 3: Shopping List Tool
+This tool allows the user to add shopping items and view the changing list.
+Concepts: lists, append(), loops, conditionals, input(), f-strings.
+
+2. EXACT MENU TEXT
+
+===== WELCOME TO MY PERSONAL MINI-TOOLKIT =====
+1. Greeting Tool
+2. Simple Calculator
+3. Shopping List Tool
+4. Quit
+
+Choose a tool (1-4):
+
+3. PROGRAM FLOW
+
+- Display a welcome message.
+- Display the menu.
+- Ask the user to choose a tool.
+- Use if, elif, and else to process the choice.
+- Return to the menu after each tool finishes.
+- Display a polite message for invalid choices.
+- Stop the program when the user chooses Quit.
+- Display a friendly goodbye message.
+
+4. EXPECTED RESULTS
+
+The program will demonstrate variables, input and output, conditionals, loops, lists, arithmetic, comments, and f-strings. The menu will continue running until the user chooses to quit.
+plp-python-week8/
+├── toolkit_plan.txt
+└── toolkit.py
+
+# Personal Mini-Toolkit
+# Week 8 Final Project
+
+# This list stores shopping items while the program is running.
+shopping_list = []
+
+print("Welcome to my Personal Mini-Toolkit!")
+
+# Keep showing the menu until the user chooses Quit.
+while True:
+    print("\n===== PERSONAL MINI-TOOLKIT =====")
+    print("1. Greeting Tool")
+    print("2. Simple Calculator")
+    print("3. Shopping List Tool")
+    print("4. Quit")
+
+    choice = input("Choose a tool (1-4): ")
+
+    # TOOL 1: Ask for the user's name and display a greeting.
+    if choice == "1":
+        name = input("What is your name? ")
+        print(f"Hello, {name}! Welcome to the toolkit.")
+
+    # TOOL 2: Add two numbers and describe the result.
+    elif choice == "2":
+        try:
+            number1 = float(input("Enter the first number: "))
+            number2 = float(input("Enter the second number: "))
+
+            total = number1 + number2
+            print(f"The sum of your numbers is {total}.")
+
+            if total > 0:
+                print("Your result is positive.")
+            elif total < 0:
+                print("Your result is negative.")
+            else:
+                print("Your result is zero.")
+
+        except ValueError:
+            print("Please enter valid numbers and try again.")
+
+    # TOOL 3: Add shopping items or display the current list.
+    elif choice == "3":
+        print("\n--- SHOPPING LIST TOOL ---")
+        print("1. Add an item")
+        print("2. View the list")
+
+        action = input("Choose an action (1-2): ")
+
+        if action == "1":
+            item = input("Enter a shopping item: ")
+            shopping_list.append(item)
+            print(f"{item} has been added to your list.")
+
+        elif action == "2":
+            if len(shopping_list) == 0:
+                print("Your shopping list is empty.")
+            else:
+                print("Here is your shopping list:")
+                for item in shopping_list:
+                    print(f"- {item}")
+
+        else:
+            print("Invalid action. Please choose 1 or 2.")
+
+    # QUIT: Stop the menu loop and end the program.
+    elif choice == "4":
+        print("Thank you for using my Personal Mini-Toolkit. Goodbye!")
+        break
+
+    # Handle invalid menu choices without crashing.
+    else:
+        print(f"Sorry, '{choice}' is not a valid choice. Please choose 1, 2, 3, or 4.")
+python toolkit.py
+py toolkit.py
+Welcome to my Personal Mini-Toolkit!
+
+===== PERSONAL MINI-TOOLKIT =====
+1. Greeting Tool
+2. Simple Calculator
+3. Shopping List Tool
+4. Quit
+Choose a tool (1-4):
+9
+Sorry, '9' is not a valid choice. Please choose 1, 2, 3, or 4.
